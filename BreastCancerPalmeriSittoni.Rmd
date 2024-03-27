@@ -1,0 +1,905 @@
+---
+title: "Breast Cancer"
+author: "Claudio Palmeri, Pietro Sittoni"
+date: "23/09/2022"
+font: 12pt
+output:
+  html_document:
+    toc: true 
+    number_sections: true  
+  pdf_document:
+    toc: true
+---
+
+# Obtaining data
+
+The dataset is available on Kaggle at this [link](https://www.kaggle.com/datasets/uciml/breast-cancer-wisconsin-data) and it was created by Dr. William H. Wolberg, physician at the University Of Wisconsin. Each records represent a sample of breast tumor masses sampled using Fine Needle Aspiration (FNA), a diagnostic procedure where a sample of a suspected pathological mass is taken with a needle. In order to extract all the features that compose the dataset, a gray-scale image is taken from the sample and analyzed with a software. 
+The data frame is composed by 32 columns and 569 row where each column represents:
+
+* Id of the patient (integer)
+* Status of the patient: This is a categorical variable and it can take two values: B if the tumor is benign, M (malignant) if it is cancer. (categorical)
+* Ten real-valued features of the tumor cell nucleus computed from the analysis of a gray-scaled image:
+  
+  * radius (mean of distances from center to points on the perimeter)
+  * texture (standard deviation of gray-scale values)
+  * perimeter
+  * area
+  * smoothness (local variation in radius lengths, which is quantified by measuring the difference between the length of a radial line and the mean lenght of the lines surroung it)
+  * compactness (perimeter^2 / area - 1.0, 
+it measures the irregularities of the perimeter of the cell nucleus, in fact this quantity is minimized by a circular disc and by increasing the irregularities the quantity increases)
+  * concavity (severity of concave portions of the contour)
+  * concave points (number of concave portions of the contour)
+  * symmetry: (the symmetry is determined by first finding the longest line from boundary point to boundary point through the center of the nucleus. Subsequently, the relative length differences between the lines perpendicular to the aformentioned line to the boundary are measured and compared.)
+  * fractal dimension ("coastline approximation" - 1,the perimeter of the nucleus is measured using increasingly larger rulers. As the size of the ruler increase, decreasing the precision of the measurement, and the perimeter decrease, plotting this values on a log scale and measuring the slope we have an approximation of the fractal dimension).
+	
+This process is done for every tumor cell nucleus observed and then
+for each features mentioned above 3 statistics are computed: mean, standard error, and "worst" (mean of the three largest values).
+
+# Importing data set and cleaning data
+
+```{r,results = FALSE, message=FALSE,echo=FALSE}
+ 
+data <- read.csv("data.csv")
+attach(data)
+
+
+```
+
+We imported the dataset into R and after checking the names of the columns we noticed that there was one additional column, named X, which was not present in the dataset description.  
+
+```{r,results = FALSE, message=FALSE,echo=FALSE}
+ 
+sum(is.na(X))
+data<-subset(data, select=-c(X))
+```
+After a closer inspection to the column X we noticed that it consisted only in NaN values. Since it was not present in the dataset description we assumed that this was a mistake done by the person who uploaded the dataset itself and thus we decided to remove it.
+```{r,results = FALSE, message=FALSE,echo=FALSE}
+ 
+sum(is.na(data))
+
+```
+We then checked if there were any other NaN values in out dataset and there weren't.
+```{r,results = FALSE, message=FALSE,echo=FALSE}
+Y<-c()
+for (i in 1:569) {
+  if (diagnosis[i]=="B"){
+    Y<-c(Y,0)
+  }
+  else if (diagnosis[i]=="M")
+  {
+     Y<-c(Y,1)
+  }
+}
+X <- subset(data, select=-c(diagnosis))
+detach(data)
+attach(X)
+```
+Lastly we decided to transform the diagnosis column by substituting the only characters present "B" and "M" respectively with 0 and 1.
+
+
+# Exploration of the data
+
+We will start with the id column, after with the diagnostic and we will continues with the numerical columuns.
+
+## Id
+
+The first columns is called id and it represent the id number of the patient which is unique by design, in fact we checked if there are 2 observation with the same id, but there were not. 
+
+```{r,results = FALSE, message=FALSE,echo=FALSE}
+length(unique(id))
+```
+
+## Diagnosis
+
+We analyze  how the diagnosis is distributed:
+
+```{r,results = TRUE, message=FALSE,echo=FALSE}
+
+data.frame(Diagnosis=c("Malignant","Benign"),Frequency=c(sum(Y),569-sum(Y)))
+```
+
+As we can see there are 212 (37.3%) malignant cases and 357 (62,7%) benign cases of tumor.  
+
+
+## Numerical variables
+
+Arrived at this point we will check the distribution of the numerical columns. We have analyzed them in ten blocks where each of them represents a feature extracted from the tumor sample. Each block consists of 6 plots: 
+
+* The three on the left column are the densities of the mean, standard error and worst cases of the feature. 
+
+* The three plots on the right column contains two densities per plot, one for the benign case and the other for the malignant cases. Each of the three plots represents the same feature as the respective plot on the left
+
+### Radius
+
+```{r,results = FALSE, message=FALSE,echo=FALSE}
+par(mfrow=c(3,2))
+dens <- density(radius_mean ,adjust=0.75)
+plot(dens,main="Density of the radius (mean)",xlab="Mean radius")
+dens_ben<-density(radius_mean[Y==0],adjust=0.75)
+dens_mal<-density(radius_mean[Y==1],adjust=0.75)
+plot(dens_ben, col="blue",main="Density Benign/Malignat radius (mean)",xlab="Mean radius",xlim=c(5,30))
+lines(dens_mal, col="red")
+legend("topright",legend=c("Benign","Malignant"),
+       col=c("blue","red"), lty=c(1,1), cex=0.6)
+
+dens <- density(radius_se, adjust=0.75)
+plot(dens,main="Density of the radius (se)", xlab="Radius standar error")
+dens_ben<-density(radius_se[Y==0],adjust=0.75)
+dens_mal<-density(radius_se[Y==1],adjust=0.75)
+plot(dens_ben, col="blue",main="Density Benign/Malignat radius (se) ", xlim=c(0,3), xlab="Radius standar error")
+lines(dens_mal, col="red")
+legend("topright",legend=c("Benign","Malignant"),
+       col=c("blue","red"), lty=c(1,1), cex=0.6)
+
+dens <- density(radius_worst, adjust=0.75)
+plot(dens,main="Density of the radius (worst)", xlab="Radius worst cases" )
+dens_ben<-density(radius_worst[Y==0],adjust=0.75)
+dens_mal<-density(radius_worst[Y==1],adjust=0.75)
+plot(dens_ben, col="blue",main="Density Benign/Malignat radius (worst)", xlim=c(5,40),xlab="Radius worst cases")
+lines(dens_mal, col="red")
+legend("topright",legend=c("Benign","Malignant"),
+       col=c("blue","red"), lty=c(1,1), cex=0.6)
+
+par(mfrow=c(1,1))
+
+
+
+```
+
+As we can see both mean radius and worst radius follows an bimodal distribution. This can be explained by looking at the density plot where we separated benign and malignant cases. Benign distribution is unimodaland malignant distribution is bimodal, the malignant case tend to assume an higher mean and worst case radius more frequently. Since the number of benign cases is two times the number of malignant cases we can conclude that both in the mean and worst cases the bimodal distribution has 1 peak bigger than the other thanks to the imbalance present in our dataset between the two classes and since the variance of the malignant density is greater it emphasizes this difference more.
+We can also observe that malignant cases seems to have more frequently an higher standard error, in other words more irregularity between the same tumor cell nuclei. 
+
+
+### Perimeter
+
+```{r,results = FALSE, message=FALSE,echo=FALSE}
+par(mfrow=c(3,2))
+dens <- density(perimeter_mean, adjust=0.75)
+plot(dens,main="Density of the perimeter (mean)",xlab="Perimeter mean" )
+dens_ben<-density(perimeter_mean[Y==0],adjust=0.75)
+dens_mal<-density(perimeter_mean[Y==1],adjust=0.75)
+plot(dens_ben, col="blue",main="Density Benign/Malignat perimeter (mean)", xlim=c(25,200),xlab="Perimeter mean" )
+lines(dens_mal, col="red")
+legend("topright",legend=c("Benign","Malignant"),
+       col=c("blue","red"), lty=c(1,1), cex=0.6)
+
+dens <- density(perimeter_se, adjust=0.75)
+plot(dens,main="Density of the perimeter (se)",xlab="Perimeter standard error")
+dens_ben<-density(perimeter_se[Y==0],adjust=0.75)
+dens_mal<-density(perimeter_se[Y==1],adjust=0.75)
+plot(dens_ben, col="blue",main="Density Benign/Malignat perimeter (se)", xlim=c(0,25),xlab="Perimeter standard error" )
+lines(dens_mal, col="red")
+legend("topright",legend=c("Benign","Malignant"),
+       col=c("blue","red"), lty=c(1,1), cex=0.6)
+
+dens <- density(perimeter_worst, adjust=0.75)
+plot(dens,main="Density of the perimeter (worst)", xlab="Perimeter worst")
+dens_ben<-density(perimeter_worst[Y==0],adjust=0.75)
+dens_mal<-density(perimeter_worst[Y==1],adjust=0.75)
+plot(dens_ben, col="blue",main="Density Benign/Malignat perimeter (worst)", xlim=c(25,300), xlab="Perimeter worst")
+lines(dens_mal, col="red")
+legend("topright",legend=c("Benign","Malignant"),
+       col=c("blue","red"), lty=c(1,1), cex=0.6)
+
+par(mfrow=c(1,1))
+
+```
+ 
+The perimeter of a cell nucles has a nearly linear relationship with its radius and thus the density plots presented above are very similar to the previous ones. The same conclusion as before can be drawn from these plots.
+
+### Area
+
+```{r,results = FALSE, message=FALSE,echo=FALSE}
+par(mfrow=c(3,2))
+dens <- density(area_mean, adjust=0.75)
+plot(dens,main="Density of the area (mean)", xlab="Area mean" )
+dens_ben<-density(area_mean[Y==0],adjust=0.75)
+dens_mal<-density(area_mean[Y==1],adjust=0.75)
+plot(dens_ben, col="blue",main="Density Benign/Malignat area (mean)", xlim=c(0,3000),xlab="Area mean" )
+lines(dens_mal, col="red")
+legend("topright",legend=c("Benign","Malignant"),
+       col=c("blue","red"), lty=c(1,1), cex=0.6)
+
+dens <- density(area_se, adjust=0.75)
+plot(dens,main="Density of the area (se)",xlab="Area standard error")
+dens_ben<-density(area_se[Y==0],adjust=0.75)
+dens_mal<-density(area_se[Y==1],adjust=0.75)
+plot(dens_ben, col="blue",main="Density Benign/Malignat area (se)", xlim=c(0,600),xlab="Area standard error")
+lines(dens_mal, col="red")
+legend("topright",legend=c("Benign","Malignant"),
+       col=c("blue","red"), lty=c(1,1), cex=0.6)
+
+dens <- density(area_worst, adjust=0.75)
+plot(dens,main="Density of the area (worst)",xlab="Area worst cases")
+dens_ben<-density(area_worst[Y==0],adjust=0.75)
+dens_mal<-density(area_worst[Y==1],adjust=0.75)
+plot(dens_ben, col="blue",main="Density Benign/Malignat area (worst)", xlim=c(0,5000),xlab="Area worst cases")
+lines(dens_mal, col="red")
+legend("topright",legend=c("Benign","Malignant"),
+       col=c("blue","red"), lty=c(1,1), cex=0.6)
+
+par(mfrow=c(1,1))
+
+```
+
+Similarly to the perimeter, the area of a cell nucleus is heavily influenced by its radius and this is why these plots are similar to the ones before. The only noticeable difference is that the right tail of the density plots seems to be more extended than before. This is due to the fact that the area has a nearly quadratic relationship to its radius, thus the part farther from zero will be more stretched.
+
+### Texture
+
+```{r,results = FALSE, message=FALSE,echo=FALSE}
+par(mfrow=c(3,2))
+dens <- density(texture_mean, adjust=0.75)
+plot(dens, main="Density of the texture (mean)", xlab="Texture mean")
+dens_ben<-density(texture_mean[Y==0],adjust=0.75)
+dens_mal<-density(texture_mean[Y==1],adjust=0.75)
+plot(dens_ben, col="blue",main="Density Benign/Malignat texture (mean)", xlim=c(5,45),ylim=c(0,0.15), xlab="Texture mean")
+lines(dens_mal, col="red")
+legend("topright",legend=c("Benign","Malignant"),
+       col=c("blue","red"), lty=c(1,1), cex=0.6)
+
+dens <- density(texture_se, adjust=0.75)
+plot(dens,main="Density of the texture (se)", xlab="Texture standard error")
+dens_ben<-density(texture_se[Y==0],adjust=0.75)
+dens_mal<-density(texture_se[Y==1],adjust=0.75)
+plot(dens_ben, col="blue",main="Density Benign/Malignat texture (se)", xlim=c(0,6),ylim=c(0,1), xlab="Texture standard error")
+lines(dens_mal, col="red")
+legend("topright",legend=c("Benign","Malignant"),
+       col=c("blue","red"), lty=c(1,1), cex=0.6)
+
+dens <- density(texture_worst, adjust=0.75)
+plot(dens,main="Density of the texture (worst)",xlab="Texture worst cases")
+dens_ben<-density(texture_worst[Y==0],adjust=0.75)
+dens_mal<-density(texture_worst[Y==1],adjust=0.75)
+plot(dens_ben, col="blue",main="Density Benign/Malignat texture (worst)", xlim=c(5,60),xlab="Texture worst cases")
+lines(dens_mal, col="red")
+legend("topright",legend=c("Benign","Malignant"),
+       col=c("blue","red"), lty=c(1,1), cex=0.6)
+
+par(mfrow=c(1,1))
+
+```
+
+The three densities on the left are unimodal and right skewed. The two densities of the benign and malignant tumors, in the case of standard error, are almost overlapped. In the other two cases, worst and mean, malignant tumors tend to have an higher texture, but is not so accentuated. This is why the overall density appear to be unimodal even if the two groups have a different mean value.
+
+### Smoothness
+
+```{r,results = FALSE, message=FALSE,echo=FALSE}
+par(mfrow=c(3,2))
+dens <- density(smoothness_mean, adjust=0.75)
+plot(dens,main="Density of the smoothness (mean)",xlab="Smoothness mean")
+dens_ben<-density(smoothness_mean[Y==0],adjust=0.75)
+dens_mal<-density(smoothness_mean[Y==1],adjust=0.75)
+plot(dens_ben, col="blue",main="Density Benign/Malignat smoothness (mean)", xlim=c(0,0.2),xlab="Smoothness mean")
+lines(dens_mal, col="red")
+legend("topright",legend=c("Benign","Malignant"),
+       col=c("blue","red"), lty=c(1,1), cex=0.6)
+
+dens <- density(smoothness_se, adjust=0.75)
+plot(dens,main="Density of the smoothness (se)")
+dens_ben<-density(smoothness_se[Y==0],adjust=0.75)
+dens_mal<-density(smoothness_se[Y==1],adjust=0.75)
+plot(dens_ben, col="blue",main="Density Benign/Malignat smoothness (se)", xlim=c(0,0.04), ylim=c(0,250),xlab="Smoothness standard error")
+lines(dens_mal, col="red")
+legend("topright",legend=c("Benign","Malignant"),
+       col=c("blue","red"), lty=c(1,1), cex=0.6)
+
+dens <- density(smoothness_worst, adjust=0.75)
+plot(dens,main="Density of the smoothness (worst)",xlab="Smoothness worst cases")
+dens_ben<-density(smoothness_worst[Y==0],adjust=0.75)
+dens_mal<-density(smoothness_worst[Y==1],adjust=0.75)
+plot(dens_ben, col="blue",main="Density Benign/Malignat smoothness (worst)", xlim=c(0,0.3),ylim=c(0,25),xlab="Smoothness worst cases")
+lines(dens_mal, col="red")
+legend("topright",legend=c("Benign","Malignant"),
+       col=c("blue","red"), lty=c(1,1), cex=0.6)
+
+par(mfrow=c(1,1))
+
+```
+
+Although the smoothness is not related to the texture, the density plots of both variables looks very similar. Thus we can apply here the same conclusion as the example before.
+
+### Compactness
+
+```{r,results = FALSE, message=FALSE,echo=FALSE}
+par(mfrow=c(3,2))
+dens <- density(compactness_mean ,adjust=0.75)
+plot(dens,main="Density of the compactness (mean)",xlab="Mean compactness")
+dens_ben<-density(compactness_mean[Y==0],adjust=0.75)
+dens_mal<-density(compactness_mean[Y==1],adjust=0.75)
+plot(dens_ben, col="blue",main="Density Benign/Malignat compactness (mean)",xlab="Mean compactness",xlim=c(0,0.33))
+lines(dens_mal, col="red")
+legend("topright",legend=c("Benign","Malignant"),
+       col=c("blue","red"), lty=c(1,1), cex=0.6)
+
+dens <- density(compactness_se, adjust=0.75)
+plot(dens,main="Density of the compactness (se)", xlab="Compactness standar error")
+dens_ben<-density(compactness_se[Y==0],adjust=0.75)
+dens_mal<-density(compactness_se[Y==1],adjust=0.75)
+plot(dens_ben, col="blue",main="Density Benign/Malignat compactness (se) ", xlab="Compactness standar error")
+lines(dens_mal, col="red")
+legend("topright",legend=c("Benign","Malignant"),
+       col=c("blue","red"), lty=c(1,1), cex=0.6)
+
+dens <- density(compactness_worst, adjust=0.75)
+plot(dens,main="Density of the compactness (worst)", xlab="Compactness worst cases" )
+dens_ben<-density(compactness_worst[Y==0],adjust=0.75)
+dens_mal<-density(compactness_worst[Y==1],adjust=0.75)
+plot(dens_ben, col="blue",main="Density Benign/Malignat compactness (worst)",xlab="Compactness worst cases",xlim=c(0,1.2))
+lines(dens_mal, col="red")
+legend("topright",legend=c("Benign","Malignant"),
+       col=c("blue","red"), lty=c(1,1), cex=0.6)
+
+par(mfrow=c(1,1))
+```
+
+In the compactness density plots on the right we can see that, as for the previous features, the malignant tumors tend to assume an higher values more frequntly than the benign ones.
+
+### Concavity
+
+```{r,results = FALSE, message=FALSE,echo=FALSE}
+par(mfrow=c(3,2))
+#mean
+dens_mean<-density(concavity_mean,adjust=0.75)
+plot(dens_mean,main="Density of the concavity (mean)",xlab = "Concavity mean")
+
+dens_mean0<-density(concavity_mean[Y==0],adjust=0.75)
+dens_mean1<-density(concavity_mean[Y==1],adjust=0.75)
+
+plot(dens_mean0,col="blue",main="Density Benign/Malignat concavity (mean)",xlab = "Concavity mean")
+
+lines(dens_mean1, col="red")
+
+legend("topright",legend=c("Benign","Malignant"),
+       col=c("blue","red"), lty=c(1,1), cex=0.6)
+
+#std err
+dens_mean<-density(concavity_se,adjust=0.75)
+plot(dens_mean,main="Density of the concavity (se)",xlab = "Concavity standard error")
+
+
+dens_mean0<-density(concavity_se[Y==0],adjust=0.75)
+dens_mean1<-density(concavity_se[Y==1],adjust=0.75)
+
+plot(dens_mean0,xlab="Concavity standard error", col="blue",main="Density Benign/Malignat concavity (se)")
+
+lines(dens_mean1, col="red")
+
+legend("topright",legend=c("Benign","Malignant"),
+       col=c("blue","red"), lty=c(1,1), cex=0.6)
+
+#worst
+dens_mean<-density(concavity_worst,adjust=0.75)
+plot(dens_mean,main="Density of the concavity (worst)",xlab="Concavity worst")
+
+
+dens_mean0<-density(concavity_worst[Y==0],adjust=0.75)
+dens_mean1<-density(concavity_worst[Y==1],adjust=0.75)
+plot(dens_mean0,xlab="Concavity worst", col="blue",main="Density Benign/Malignat concavity (worst)")
+
+lines(dens_mean1, col="red")
+
+legend("topright",legend=c("Benign","Malignant"),
+       col=c("blue","red"), lty=c(1,1), cex=0.6)
+
+
+par(mfrow=c(1,1))
+
+```
+
+On the left all three densities are unimodal and right skewed apart from worst case that seems bimodal. On the right if we look at the cases of the mean and worst of the cell nucleus concavity we see that malignant cancers have a more pronounced concavity than benign ones. We can also observe that the density of the benign concavity mean and worst cases have a lower variance than the malignant ones.  
+Malignant cell nucleus also usually have a higher standard error compared to the benign ones.
+
+### Concave points
+
+```{r,results = FALSE, message=FALSE,echo=FALSE}
+par(mfrow=c(3,2))
+#mean
+
+dens_mean<-density(concave.points_mean,adjust=0.75)
+plot(dens_mean, xlab="Concave points mean",main="Density of the concave points (mean)")
+
+dens_mean0<-density(concave.points_mean[Y==0],adjust=0.75)
+dens_mean1<-density(concave.points_mean[Y==1],adjust=0.75)
+plot(dens_mean0, xlab="Concave points mean",col="blue",main="Density Benign/Malignat concave points (mean)",xlim=c(-0.001,0.22))
+
+lines(dens_mean1, col="red")
+legend("topright",legend=c("Benign","Malignant"),
+       col=c("blue","red"), lty=c(1,1), cex=0.6)
+
+#std dev
+dens_mean<-density(concave.points_se,adjust=0.75)
+plot(dens_mean,xlab="Concave points standard error", main="Density of the concave points (se)")
+
+
+dens_mean0<-density(concave.points_se[Y==0],adjust=0.75)
+dens_mean1<-density(concave.points_se[Y==1],adjust=0.75)
+plot(dens_mean0,xlab="Concave points standard error", col="blue",main="Density Benign/Malignat concave points (se)")
+
+lines(dens_mean1, col="red")
+legend("topright",legend=c("Benign","Malignant"),
+       col=c("blue","red"), lty=c(1,1), cex=0.6)
+
+#worst
+dens_mean<-density(concave.points_worst,adjust=0.75)
+plot(dens_mean,xlab="Concave points worst",main="Density of the concave points (worst)")
+
+dens_mean0<-density(concave.points_worst[Y==0],adjust=0.75)
+dens_mean1<-density(concave.points_worst[Y==1],adjust=0.75)
+plot(dens_mean0,xlab="Concave points worst", col="blue",main="Density Benign/Malignat concave points (worst)",xlim=c(0,0.35))
+
+lines(dens_mean1, col="red")
+legend("topright",legend=c("Benign","Malignant"),
+       col=c("blue","red"), lty=c(1,1), cex=0.6)
+par(mfrow=c(1,1))
+```
+
+The density plots shown above are similar to the concavity ones and thus we can make the same observation as before.
+There is also an inconsistency in our dataset: according to the description given on kaggle this variable should represent the number of concave portions of the contour in the cell nucleus. This implies that in the worst case (which is a mean of the 3 largest value computed from the cell nucleus) the minimum, non zero, value that it could take is 0.333 (where 1 cell nucleus have 1 concave point and all the others have 0). This is in direct contradiction with the fact that the majority of the density is less than 0.3. Our guess is that they have been rescaled and it has not been indicated.
+
+### Symmetry
+
+```{r,results = FALSE, message=FALSE,echo=FALSE}
+par(mfrow=c(3,2))
+#mean
+dens_mean<-density(symmetry_mean,adjust=0.75)
+plot(dens_mean, xlab ="Symmetry mean",main="Density of the symmetry (mean)")
+
+dens_mean0<-density(symmetry_mean[Y==0],adjust=0.75)
+dens_mean1<-density(symmetry_mean[Y==1],adjust=0.75)
+plot(dens_mean0, col="blue",xlab ="Symmetry mean",main="Density Benign/Malignat symmetry (mean)")
+
+lines(dens_mean1, col="red")
+legend("topright",legend=c("Benign","Malignant"),
+       col=c("blue","red"), lty=c(1,1), cex=0.6)
+#std dev
+dens_mean1<-density(symmetry_se,adjust=0.75)
+plot(dens_mean0, xlab ="Symmetry standard error",main="Density of the symmetry (se)")
+
+dens_mean0<-density(symmetry_se[Y==0],adjust=0.75)
+dens_mean1<-density(symmetry_se[Y==1],adjust=0.75)
+plot(dens_mean0, col="blue",xlab ="Symmetry standard error",main="Density Benign/Malignat symmetry (se)",ylim=c(0,80))
+
+lines(dens_mean1, col="red")
+legend("topright",legend=c("Benign","Malignant"),
+       col=c("blue","red"), lty=c(1,1), cex=0.6)
+#worst
+dens_mean<-density(symmetry_worst,adjust=0.75)
+plot(dens_mean, xlab = "Symmetry worst",main="Density of the symmetry (worst)")
+
+dens_mean0<-density(symmetry_worst[Y==0],adjust=0.75)
+dens_mean1<-density(symmetry_worst[Y==1],adjust=0.75)
+plot(dens_mean0, col="blue",xlab = "Symmetry worst",main="Density Benign/Malignat symmetry (worst)")
+
+lines(dens_mean1, col="red")
+legend("topright",legend=c("Benign","Malignant"),
+       col=c("blue","red"), lty=c(1,1), cex=0.6)
+
+par(mfrow=c(1,1))
+
+```
+
+On the left we can see the density plot of the mean cell nucleus symmetry is symmetric. Also the other two densities are almost symmetric, and the standard error density is unimodal.
+The differences of mean,standard error and worst cases between the benign and malignant are not accentuated. There only a slight tendency for malignant cell nucleus to have mean and worst case symmetry of the cell nucleus higher more frequently.
+
+### Fractal dimension
+
+```{r,results = FALSE, message=FALSE,echo=FALSE}
+par(mfrow=c(3,2))
+#mean
+dens_mean<-density(fractal_dimension_mean,adjust=0.75)
+plot(dens_mean,xlab = "Fractal dimension mean",main="Density of the fractal dimension (mean)")
+
+dens_mean0<-density(fractal_dimension_mean[Y==0],adjust=0.75)
+dens_mean1<-density(fractal_dimension_mean[Y==1],adjust=0.75)
+plot(dens_mean0, col="blue",xlab = "Fractal dimension mean",main="Density Benign/Malignat fractal dimension (mean)")
+
+lines(dens_mean1, col="red")
+legend("topright",legend=c("Benign","Malignant"),
+       col=c("blue","red"), lty=c(1,1), cex=0.6)
+
+#std dev
+dens_mean1<-density(fractal_dimension_se,adjust=0.75)
+plot(dens_mean0,xlab = "Fractal dimension standard error",main="Density Benign/Malignatfractal dimension (se)")
+
+
+dens_mean0<-density(fractal_dimension_se[Y==0],adjust=0.75)
+dens_mean1<-density(fractal_dimension_se[Y==1],adjust=0.75)
+plot(dens_mean0, col="blue",xlab = "Fractal dimension standard error",main="Density Benign/Malignat fractal dimension (se)")
+
+lines(dens_mean1, col="red")
+legend("topright",legend=c("Benign","Malignant"),
+       col=c("blue","red"), lty=c(1,1), cex=0.6)
+#worst
+dens_mean1<-density(fractal_dimension_worst,adjust=0.75)
+plot(dens_mean0,xlab = "Fractal dimension worst",main="Density of the fractal dimension (worst)")
+
+
+dens_mean0<-density(fractal_dimension_worst[Y==0],adjust=0.75)
+dens_mean1<-density(fractal_dimension_worst[Y==1],adjust=0.75)
+plot(dens_mean0, col="blue",xlab = "Fractal dimension worst",main="Density Benign/Malignat fractal dimension (worst)")
+
+lines(dens_mean1, col="red")
+legend("topright",legend=c("Benign","Malignant"),
+       col=c("blue","red"), lty=c(1,1), cex=0.6)
+
+
+par(mfrow=c(1,1))
+```
+
+The three density on the left (mean,standard error and worst) are right skewed. As in the case of the symmetry the difference among the benign and malignant tumor are not clear except for the standard error and worst cases where malignant cases tends to have bigger values more frequently.
+
+## Scatterplot
+
+At this point we try to analyze the scatter plots between the numerical variables. We will mark the points that correspond to malignant and benign tumors in a different way in order to notice the difference among the two groups.
+We could generate 435 different scatter plots, this is long and impractical. So we decide to plot the some example which in our opinion are able to represent in a qualitative way all the other scatter plots.
+
+```{r,results = FALSE, message=FALSE,echo=FALSE}
+par(mfrow=c(1,2))
+
+plot(concave.points_mean,concave.points_se,xlab = "Concave points mean",ylab = "Concave points standard error",col=Y*6+3,pch = 22)
+
+legend("topleft",legend=c("Malignant","Benign"),col =c(6,0)+3,cex=0.7,pch = 22)
+
+plot(concave.points_mean,concave.points_worst,xlab = "Concave points mean",ylab = "Concave points worst",col=Y*6+3,pch = 22)
+legend("topleft",legend=c("Malignant","Benign"),col = c(6,0)+3,cex=0.7,pch = 22)
+par(mfrow=c(1,1))
+```
+```{r,results = FALSE, message=FALSE,echo=FALSE}
+par(mfrow=c(1,2))
+
+plot(concave.points_mean,area_mean,xlab = "Concave points mean",ylab = "Area mean",col=Y*6+3,pch = 22)
+
+legend("topleft",legend=c("Malignant","Benign"),col = c(6,0)+3,cex=0.8,pch = 22)
+
+plot(concave.points_mean,area_se,xlab = "Concave points mean ",ylab = "Area standard error",col=Y*6+3,pch =22)
+legend("topleft",legend=c("Malignant","Benign"),col =c(6,0)+3,cex=0.8,pch = 22)
+
+par(mfrow=c(1,1))
+par(mfrow=c(1,2))
+
+plot(concave.points_mean,area_worst,xlab = "Concave points mean",ylab = "Area worst",col=Y*6+3,pch =22)
+legend("topleft",legend=c("Malignant","Benign"),col = c(6,0)+3,cex=0.8,pch =22)
+
+plot(texture_worst ,compactness_mean,xlab = "Texture worst",ylab = "Compactness mean",col=Y*6+3,pch =22)
+legend("topleft",legend=c("Malignant","Benign"),col = c(6,0)+3,cex=0.8,pch =22)
+par(mfrow=c(1,1))
+```
+
+In both of first two cases it can be noted that benign and malignant tumors have different characteristics. Malignant cancer tend to have a higher mean, worst cases and standard deviation of concave points than benign tumor. However, in the second case, the cases of benign and malignant tumors are "more" separate than in the first, in the sense that there are less overlapping points. In fact, looking at the density plots in the case of standard deviation, the distributions of benign and malignant tumors are closer than in the worst case. In the third, fourth and fifth scatterplot in which we compare the mean concave points and the area (mean, standard error and worst), the difference are marked among benign tumor and malignant cancer. Malignant tumors tend to be in the upper right and benign in the bottom left. But also in this case some point of benign and malignant are overlapped. In the last case we compare the texture worst and compactness mean, in this case the two group are not separate as the previous case, in the sense that the portion of the plot where the two groups are overlapped are bigger than the previous, but also in this scatter plot we can notice that there are difference among benign and malignant.
+
+```{r,results = FALSE, message=FALSE,echo=FALSE}
+
+par(mfrow=c(1,3))
+plot(radius_mean, texture_mean, xlab="Radius mean", ylab="Texture mean", col=Y*6+3,pch = 22)
+legend("topleft",legend=c("Malignant","Benign"),col = c(6,0)+3,cex=0.8,pch = 22)
+
+plot(radius_mean, smoothness_mean, xlab="Radius mean", ylab="Smoothness mean", col=Y*6+3,pch =22)
+legend("topleft",legend=c("Malignant","Benign"),col = c(6,0)+3,cex=0.8,pch = Y*20+2)
+
+plot(concave.points_mean, texture_se, xlab="Concave points mean", ylab="Texture standard error", col=Y*6+3,pch =22)
+legend("topleft",legend=c("Malignant","Benign"),col = c(6,0)+3,cex=0.8,pch = Y*20+2)
+
+par(mfrow=c(1,1))
+```
+
+In this case the benign and malignant occupy respectively the left part and right part of the scatter plot. This is probably due to the fact that the difference among benign and malignant in the cases of concave point mean and radius mean are marked (we noticed that when we analyzed the densities) while on the other hand the difference among benign and malignant in the cases of texture mean, smootheness mean and texture standard error are not so clear.
+
+```{r,results = FALSE, message=FALSE,echo=FALSE}
+
+par(mfrow=c(1,2))
+plot(radius_mean, perimeter_mean, xlab="Radius mean",ylab="Perimeter mean",col=Y*6+3,pch = 22)
+legend("topleft",legend=c("Malignant","Benign"),col = c(6,0)+3,cex=0.8,pch = 22)
+plot(radius_mean, area_mean, xlab="Radius mean",ylab="Area mean", col=Y*6+3,pch = 22)
+legend("topleft",legend=c("Malignant","Benign"),col = c(6,0)+3,cex=0.8,pch = 22)
+par(mfrow=c(1,1))
+```
+
+From the first 2 scatter plots we can see how both perimeter and area are related to the radius, respectively in a linear and quadratic way. Malignant tumors tend to be in the upper right and benign in the lower left. But also in this case some point of benign and malignant are overlapped.
+
+```{r,results = FALSE, message=FALSE,echo=FALSE}
+par(mfrow=c(1,2))
+plot(symmetry_mean,symmetry_se,xlab = "Symmetry mean",ylab = "Symmetry standard error",col=Y*6+3,pch = 22)
+
+legend("topleft",legend=c("Malignant","Benign"),col = c(6,0)+3,cex=0.8,pch =22)
+
+plot(symmetry_mean,fractal_dimension_mean,xlab = "Symmetry mean",ylab = "Fractal dimension mean",col=Y*6+3,pch = 22)
+legend("topleft",legend=c("Malignant","Benign"),col = c(6,0)+3,cex=0.8,pch = 22)
+par(mfrow=c(1,1))
+```
+
+Not in all cases the difference among benign and malignant tumors are evident like in the examples above.
+This is due to the fact that all the 3 variables plotted don't have a clear separation between the two classes and thus the resulting scatter plots doesn't show a clear pattern.
+
+## Summary
+
+In many cases the differences in the densities of the numerical variables between benign and malignant cases are marked and every time this happens cancers tend to have more frequent an higher values than benign tumors. This was also visible in the global distribution of numerical variables which was often bimodal. 
+The difference,among benign and malignant cases, are also reflected in the scatter plot. In fact in many example that we expose this difference are pronounced, but not in all scatter plots, in fact in the last couple this difference are not clear. 
+So due all this consideration we decide to make a  binary classification, and try to build a model that is able to identify the malignant cases from the benign. Since the id column is unique for each observation and it is not informative about the type of tumors (i.e. if it is benign or malignant), we decide to not use it during the classification.
+
+```{r,results = FALSE, message=FALSE,echo=FALSE}
+X <- subset(X, select=-c(id))
+```
+
+# Model data
+
+We divide in two part the data set, training and validation. We kept 80% of the observations in the training set while the remaining 20% in the validation set.In order to achieve our goal, we try 3 different models, in order to classify the tumors in the best way we can, and the three models are: Logistic Regression, LDA and QDA. For each model we produce the confusion matrix and 5 metrics (misclassification error, precision, sensitivity,specificity, negative predicted value), all calculated on the validation set.
+
+```{r,results = FALSE, message=FALSE,echo=FALSE}
+set.seed(42)
+n<-dim(X)[1]
+validation <- sample(1:n,114 )
+train <- setdiff(1:n, validation)
+
+X_val <- X[validation, ]
+X_train <- X[train, ]
+Y_val<-Y[validation]
+Y_train<-Y[train]
+detach(X)
+attach(X_train)
+```
+
+## Logistic regression
+
+The first model that we fit is the logistic regression.
+
+```{r,results = TRUE, message=FALSE,echo=FALSE}
+glm_full<-glm(Y_train~. ,data=X_train,family = binomial)
+summary(glm_full)
+```
+
+As we can see the fitting algorithm does not converge, probably due to the similarities among the predictors. If we look at the summary of the model, the predictors have a weird behavior: the standard errors are several orders of magnitude bigger than the estimated coefficients and almost all p-value are 1. 
+In order to handle this problem, we decided to use constraint-based backward stepwise selection.
+
+```{r,results = TRUE,warning=FALSE,message=FALSE,echo=FALSE}
+glm_full<-glm(Y_train~. ,data=X_train,family = binomial)
+
+#step 1
+glm_red<-update(glm_full, .~.-texture_mean)
+step1<-anova(glm_red,glm_full,test="Chisq")$`Pr(>Chi)`[2]
+
+
+#step 2
+glm_red<-update(glm_red, .~.-fractal_dimension_worst)
+step2<-anova(glm_red,glm_full,test="Chisq")$`Pr(>Chi)`[2]
+
+#step 3
+glm_red<-update(glm_red, .~.-compactness_worst)
+step3<-anova(glm_red,glm_full,test="Chisq")$`Pr(>Chi)`[2]
+
+#step 4
+glm_red<-update(glm_red, .~.-area_worst)
+step4<-anova(glm_red,glm_full,test="Chisq")$`Pr(>Chi)`[2]
+
+#step 5
+glm_red<-update(glm_red, .~.-area_se)
+step5<-anova(glm_red,glm_full,test="Chisq")$`Pr(>Chi)`[2]
+
+#step 6
+glm_red<-update(glm_red, .~.-symmetry_mean)
+step6<-anova(glm_red,glm_full,test="Chisq")$`Pr(>Chi)`[2]
+
+#step 7
+glm_red<-update(glm_red, .~.-area_mean)
+step7<-anova(glm_red,glm_full,test="Chisq")$`Pr(>Chi)`[2]
+
+#step 8
+glm_red<-update(glm_red, .~.-smoothness_mean)
+step8<-anova(glm_red,glm_full,test="Chisq")$`Pr(>Chi)`[2]
+
+#step 9
+glm_red<-update(glm_red, .~.-smoothness_worst)
+step9<-anova(glm_red,glm_full,test="Chisq")$`Pr(>Chi)`[2]
+
+
+#step 10
+glm_red<-update(glm_red, .~.-perimeter_se)
+step10<-anova(glm_red,glm_full,test="Chisq")$`Pr(>Chi)`[2]
+
+
+#step 11
+glm_red<-update(glm_red, .~.-concave.points_worst )
+step11<-anova(glm_red,glm_full,test="Chisq")$`Pr(>Chi)`[2]
+
+#step 12
+glm_red<-update(glm_red, .~.-perimeter_worst)
+step12<-anova(glm_red,glm_full,test="Chisq")$`Pr(>Chi)`[2]
+
+
+#step 13
+glm_red<-update(glm_red, .~.-compactness_mean)
+step13<-anova(glm_red,glm_full,test="Chisq")$`Pr(>Chi)`[2]
+
+
+#step 14
+glm_red<-update(glm_red, .~.-concavity_se)
+step14<-anova(glm_red,glm_full,test="Chisq")$`Pr(>Chi)`[2]
+
+
+#step 15
+glm_red<-update(glm_red, .~.-fractal_dimension_mean)
+step15<-anova(glm_red,glm_full,test="Chisq")$`Pr(>Chi)`[2]
+
+
+#step 16
+glm_red<-update(glm_red, .~.-smoothness_se)
+step16<-anova(glm_red,glm_full,test="Chisq")$`Pr(>Chi)`[2]
+
+
+#step 17
+glm_red<-update(glm_red, .~.-fractal_dimension_se)
+step17<-anova(glm_red,glm_full,test="Chisq")$`Pr(>Chi)`[2]
+
+
+#step 18
+glm_red<-update(glm_red, .~.-radius_mean)
+step18<-anova(glm_red,glm_full,test="Chisq")$`Pr(>Chi)`[2]
+
+
+#step 19
+glm_red<-update(glm_red, .~.-concavity_worst)
+step19<-anova(glm_red,glm_full,test="Chisq")$`Pr(>Chi)`[2]
+
+
+#step 20
+glm_red<-update(glm_red, .~.-perimeter_mean)
+step20<-anova(glm_red,glm_full,test="Chisq")$`Pr(>Chi)`[2]
+
+
+#step 21
+glm_red<-update(glm_red, .~.-concave.points_mean )
+step21<-anova(glm_red,glm_full,test="Chisq")$`Pr(>Chi)`[2]
+
+#step 22
+glm_red<-update(glm_red, .~.-symmetry_se)
+anova(glm_red,glm_full,test="Chisq")
+summary(glm_red)
+
+  
+```
+
+We decided to impose a maximum level of significance of 0.05 and then proceeded to eliminate the variable with highest p-value until all the remaining ones where under that threshold.  
+We also made at each step a Deviance difference test and at all steps the p-value computed was higher than 0.05.
+Although we started with many predictors, to be precise 30, after this process we were left with 8 predictors: mean concavity, radius standard error, texture standard error, compactness standard error, number of concave points standard error, worst cases radius,worst cases texture and worst cases symmetry.
+We can see how some features like perimeter, area, smoothness, fractal dimension were completely excluded from our set of predictors(i.e. their mean, standard error and worst cases does not appears in the set of predictor).
+In fact in the densities plot of the fractal dimension the difference among benign and malignant were not so clear. The radius, perimeter and area, apart of the order of magnitude, had a very similar behavior in identifying differences among the two classes.
+Similarly the same are valid for the smoothness and texture.
+
+
+```{r,results = TRUE,warning=FALSE, message=FALSE,echo=FALSE}
+
+glm_probs <- predict(glm_red,X_val,type="response")
+glm_pred <- rep(0,114)
+glm_pred[glm_probs>0.5] <- 1
+
+#conf_mat
+conf_mat_lgr<-table(glm_pred,Y_val)
+
+#metrics
+TP<-conf_mat_lgr[4]
+FN<-conf_mat_lgr[3]
+FP<-conf_mat_lgr[2]
+TN<-conf_mat_lgr[1]
+mis<-1-(TP+TN)/(TP+TN+FP+FN)
+prec<-TP/(TP+FP)
+sens<- TP/(TP+FN)
+spec<-TN/(FP+TN)
+neg_pred_val<-TN/(FN+TN)
+print(conf_mat_lgr)
+first_column <- c("Misclassification error", "Precision","Sensitivity","Specificity","Negative Predicted Value")
+second_column <- c(mis,prec,sens,spec,neg_pred_val)
+df_lgr <- data.frame(Metric=first_column, Value=second_column)
+print(df_lgr)
+
+
+
+```
+
+The performances of our model are excellent: the logistic regression commits few errors on the validation set, more specifically 5 false negatives and only one false positive (given that in our model a malignant cancer is defined as the positive outcome).  
+To get a clearer idea we calculated the metrics that in this case are all higher than 0.90 except for the sensitivity which is influenced by the larger number of false negatives.
+The misclassification error is 0.05
+
+## LDA
+
+The second model that we fit is LDA. 
+
+```{r,results = FALSE, message=FALSE,echo=FALSE,warning=FALSE}
+
+library(MASS)
+lda.fit <- lda(Y_train~radius_mean + texture_mean + perimeter_mean + 
+      area_mean + smoothness_mean + compactness_mean + concavity_mean + 
+      concave.points_mean + symmetry_mean + fractal_dimension_mean + 
+      radius_se + texture_se + perimeter_se + area_se + smoothness_se + 
+      compactness_se + concavity_se + concave.points_se + symmetry_se + 
+      fractal_dimension_se + radius_worst + texture_worst + perimeter_worst + 
+      area_worst + smoothness_worst + compactness_worst + concavity_worst + 
+      concave.points_worst + symmetry_worst + fractal_dimension_worst)
+
+```
+
+```{r,results = TRUE, message=FALSE,echo=FALSE,warning=FALSE}
+lda.pred <- predict(lda.fit, X_val)
+lda.class <- lda.pred$class
+#conf mat
+conf_mat_lda<-table(lda.class,Y_val)
+conf_mat_lda
+
+#metrics
+TP<-conf_mat_lda[4]
+FN<-conf_mat_lda[3]
+FP<-conf_mat_lda[2]
+TN<-conf_mat_lda[1]
+mis<-1-(TP+TN)/(TP+TN+FP+FN)
+prec<-TP/(TP+FP)
+sens<- TP/(TP+FN)
+spec<-TN/(FP+TN)
+neg_pred_val<-TN/(FN+TN)
+
+first_column <- c("Misclassification error", "Precision","Sensitivity","Specificity","Negative Predicted Value")
+second_column <- c(mis,prec,sens,spec,neg_pred_val)
+df_lda <- data.frame(Metric=first_column, Value=second_column)
+print(df_lda)
+
+```
+
+As we can see from the confusion matrix, the performance of LDA is identical to the logistic regression.
+
+## QDA
+
+The third model that we fit is QDA. 
+
+```{r,results = FALSE,message=FALSE,echo=FALSE}
+qda.fit <- qda(Y_train~radius_mean + texture_mean + perimeter_mean + 
+      area_mean + smoothness_mean + compactness_mean + concavity_mean + 
+      concave.points_mean + symmetry_mean + fractal_dimension_mean + 
+      radius_se + texture_se + perimeter_se + area_se + smoothness_se + 
+      compactness_se + concavity_se + concave.points_se + symmetry_se + 
+      fractal_dimension_se + radius_worst + texture_worst + perimeter_worst + 
+      area_worst + smoothness_worst + compactness_worst + concavity_worst + 
+      concave.points_worst + symmetry_worst + fractal_dimension_worst)
+```
+```{r,results = TRUE,message=FALSE,echo=FALSE}
+qda.pred <- predict(qda.fit, X_val)
+qda.class <- qda.pred$class
+#conf mat
+conf_mat_qda<-table(qda.class,Y_val)
+conf_mat_qda
+
+#metrics
+TP<-conf_mat_qda[4]
+FN<-conf_mat_qda[3]
+FP<-conf_mat_qda[2]
+TN<-conf_mat_qda[1]
+mis<-1-(TP+TN)/(TP+TN+FP+FN)
+prec<-TP/(TP+FP)
+sens<- TP/(TP+FN)
+spec<-TN/(FP+TN)
+neg_pred_val<-TN/(FN+TN)
+
+first_column <- c("Misclassification error", "Precision","Sensitivity","Specificity","Negative Predicted Value")
+second_column <- c(mis,prec,sens,spec,neg_pred_val)
+df_qda <- data.frame(Metric=first_column, Value=second_column)
+print(df_qda)
+```
+
+Also QDA commits few errors on the validation set, more specifically 3 false negatives and 6 false positive.  
+To get a clearer idea we calculated the metrics: precision assume a value below 0.90 which is caused by the fact that there were 6 false positive and the misclassification error is 0.07.
+
+#  Conclusions
+
+```{r,results = TRUE,warning=FALSE, message=FALSE,echo=FALSE}
+total <- merge(df_lda,df_qda,by="Metric")
+
+total<-merge(total,df_lgr,by="Metric")
+colnames(total) <- c("Metric","LDA","QDA","Logistic reg.")
+
+total
+
+```
+
+
+Our objective is to decide which model is better suited for predicting whether a tumor is benign or malignant. To achieve that we use two criteria: minimize the misclassification error and also maximize the sensitivity and negative predicted value.  
+This is because, maximizing this two metrics minimize also the number of false negatives. The false negative are more problematic because the malignant tumor classified as benign, are far more dangerous than the opposite situation. This is because cancers need to be treated as fast as possible, otherwise they could spread to other regions of our body and create irreversible damage and be lethal to the patient. 
+We also decided that between those two criteria, having less false negatives would take precedence over having a lower classification error.
+In our situation both logistic regression and LDA have the same performance while the QDA is slightly different:
+QDA has a bigger misclassification error but it compensates for that by having less false negatives and thus bigger sensitivity and negative predicted value. 
+Thus we decided to choose QDA as the best method.
